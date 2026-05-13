@@ -6,6 +6,19 @@
   "bin": {
     "tanstack-supply-chain-checker": "./dist/cli.js"
   },
+  "bugs": {
+    "url": "https://github.com/emresandikci/tanstack-supply-chain-checker/issues"
+  },
+  "homepage": "https://github.com/emresandikci/tanstack-supply-chain-checker#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/emresandikci/tanstack-supply-chain-checker.git"
+  },
+    "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "bun build src/cli.ts --outfile dist/cli.js --target node --banner '#!/usr/bin/env node'",
     "dev": "bun run src/cli.ts",
