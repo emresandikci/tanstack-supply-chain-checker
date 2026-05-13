@@ -1,0 +1,25 @@
+{
+  "name": "@emstack/tanstack-supply-chain-checker",
+  "version": "1.0.0",
+  "description": "Detect and fix the mini-shai-hulud TanStack supply-chain attack (socket.dev/blog/tanstack-npm-packages-compromised-mini-shai-hulud-supply-chain-attack)",
+  "type": "module",
+  "bin": {
+    "tanstack-supply-chain-checker": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "bun build src/cli.ts --outfile dist/cli.js --target node --banner '#!/usr/bin/env node'",
+    "dev": "bun run src/cli.ts",
+    "prepublishOnly": "bun run build"
+  },
+  "keywords": ["security", "supply-chain", "tanstack", "npm-audit"],
+  "license": "MIT",
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@clack/prompts": "^1.4.0"
+  }
+}
