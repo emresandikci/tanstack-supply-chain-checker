@@ -22,7 +22,8 @@
   "scripts": {
     "build": "bun build src/cli.ts --outfile dist/cli.js --target node --banner '#!/usr/bin/env node'",
     "dev": "bun run src/cli.ts",
-    "prepublishOnly": "bun run build"
+    "validate": "bun run test/validate.ts",
+    "prepublishOnly": "bun run build && bun run validate"
   },
   "keywords": ["security", "supply-chain", "tanstack", "npm-audit"],
   "license": "MIT",

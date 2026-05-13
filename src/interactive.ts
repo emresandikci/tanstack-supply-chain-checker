@@ -32,7 +32,6 @@ function findProjects(rootDir: string): ProjectInfo[] {
       walk(subdir, depth + 1);
     }
 
-    // Check if this dir has package.json
     const pkgJson = path.join(dir, "package.json");
     if (fs.existsSync(pkgJson) && !seen.has(dir)) {
       seen.add(dir);
@@ -46,7 +45,6 @@ function findProjects(rootDir: string): ProjectInfo[] {
     }
   }
 
-  // Also check root itself
   const rootPkg = path.join(rootDir, "package.json");
   if (fs.existsSync(rootPkg)) {
     let name = path.basename(rootDir);
@@ -60,7 +58,6 @@ function findProjects(rootDir: string): ProjectInfo[] {
 
   walk(rootDir, 0);
 
-  // Sort: root first, then alphabetically by relPath
   return projects.sort((a, b) => {
     if (a.relPath === ".") return -1;
     if (b.relPath === ".") return 1;
@@ -98,7 +95,6 @@ function formatFindings(findings: Finding[]): string {
 export async function runInteractive() {
   p.intro(`${BOLD}tanstack-supply-chain-checker${RESET}  ${B}mini-shai-hulud attack detector${RESET}`);
 
-  // Step 1: get root path
   const inputPath = await p.text({
     message: "Root path to scan",
     placeholder: ".",
@@ -117,7 +113,6 @@ export async function runInteractive() {
 
   const rootDir = path.resolve(inputPath as string || ".");
 
-  // Step 2: discover projects
   const spinner = p.spinner();
   spinner.start("Discovering projects...");
   const projects = findProjects(rootDir);
@@ -129,7 +124,6 @@ export async function runInteractive() {
     process.exit(0);
   }
 
-  // Step 3: select projects
   const selected = await p.multiselect<ProjectInfo>({
     message: "Select projects to scan",
     options: projects.map((proj) => ({
@@ -146,7 +140,6 @@ export async function runInteractive() {
     process.exit(0);
   }
 
-  // Step 4: options
   const doFix = await p.confirm({
     message: "Auto-fix detected issues?",
     initialValue: false,
@@ -161,7 +154,6 @@ export async function runInteractive() {
 
   console.log();
 
-  // Step 5: scan each project
   const results: Array<{
     project: ProjectInfo;
     scanResult: ScanResult;
@@ -172,7 +164,14 @@ export async function runInteractive() {
     const s = p.spinner();
     s.start(`Scanning ${BOLD}${project.name}${RESET} ${B}(${project.relPath})${RESET}`);
 
-    const scanResult = scan(project.dir, includeNodeModules as boolean);
+    let scanResult: ScanResult;
+    try {
+      scanResult = scan(project.dir, includeNodeModules as boolean);
+    } catch (err) {
+      s.stop(`${project.name}  ${R}scan error${RESET}`);
+      p.log.error(`  ${project.name}: ${err instanceof Error ? err.message : String(err)}`);
+      continue;
+    }
 
     if (scanResult.findings.length === 0) {
       s.stop(`${project.name}  ${G}✓ clean${RESET}`);
@@ -182,7 +181,6 @@ export async function runInteractive() {
 
     s.stop(`${project.name}  ${formatFindings(scanResult.findings)}`);
 
-    // Show findings
     for (const finding of scanResult.findings) {
       const color = severityColor(finding.severity);
       p.log.warn(
@@ -215,7 +213,6 @@ export async function runInteractive() {
     console.log();
   }
 
-  // Step 6: summary
   const totalFindings = results.reduce((n, r) => n + r.scanResult.findings.length, 0);
   const compromised = results.filter((r) => r.scanResult.findings.length > 0);
 
@@ -238,7 +235,6 @@ export async function runInteractive() {
     p.outro(`${G}${BOLD}All projects clean. No indicators of compromise found.${RESET}`);
   } else {
     if (doFix) {
-      // Show consolidated manual actions
       const allManual = results
         .flatMap((r) => r.fixResult?.manualActions ?? [])
         .filter((line, i, arr) => arr.indexOf(line) === i); // dedupe

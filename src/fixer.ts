@@ -9,11 +9,16 @@ export interface FixResult {
   manualActions: string[];
 }
 
+function isUnderTarget(targetDir: string, fullPath: string): boolean {
+  const resolved = path.resolve(fullPath);
+  const target = path.resolve(targetDir);
+  return resolved === target || resolved.startsWith(target + path.sep);
+}
+
 export function fix(targetDir: string, findings: Finding[]): FixResult {
   const fixed: string[] = [];
   const skipped: string[] = [];
   const manualActions: string[] = [];
-  // Track already-fixed package.json paths to avoid double-processing
   const fixedPackageJsons = new Set<string>();
 
   for (const finding of findings) {
@@ -23,6 +28,11 @@ export function fix(targetDir: string, findings: Finding[]): FixResult {
     }
 
     const fullPath = path.join(targetDir, finding.path);
+
+    if (!isUnderTarget(targetDir, fullPath)) {
+      skipped.push(finding.path);
+      continue;
+    }
 
     switch (finding.category) {
       case "malicious-file":
@@ -41,7 +51,6 @@ export function fix(targetDir: string, findings: Finding[]): FixResult {
       case "injected-dependency":
       case "malicious-script": {
         if (fixedPackageJsons.has(fullPath)) {
-          // Already fixed this file for another finding — count as fixed
           if (!fixed.includes(finding.path)) fixed.push(finding.path);
           break;
         }
@@ -59,7 +68,6 @@ export function fix(targetDir: string, findings: Finding[]): FixResult {
     }
   }
 
-  // Build manual action checklist
   const hasGitFindings = findings.some((f) => f.category.includes("commit"));
   const hasPersistenceHooks = findings.some(
     (f) => f.category === "persistence-hooks"
@@ -147,13 +155,22 @@ function deleteFile(fullPath: string): boolean {
   }
 }
 
-function fixPackageJson(fullPath: string, finding: Finding): boolean {
+function isMaliciousScriptValue(cmd: unknown): boolean {
+  const cmds = Array.isArray(cmd) ? cmd.map(String) : [String(cmd)];
+  return cmds.some(
+    (s) =>
+      s.includes("tanstack_runner.js") ||
+      s.includes("router_init.js") ||
+      s.includes("router_runtime.js")
+  );
+}
+
+function fixPackageJson(fullPath: string, _finding: Finding): boolean {
   try {
     const content = fs.readFileSync(fullPath, "utf8");
     const pkg = JSON.parse(content);
     let changed = false;
 
-    // Remove injected packages from all dep sections
     for (const section of [
       "dependencies",
       "devDependencies",
@@ -167,31 +184,25 @@ function fixPackageJson(fullPath: string, finding: Finding): boolean {
             changed = true;
           }
         }
-        // Remove empty sections
         if (Object.keys(pkg[section]).length === 0) {
           delete pkg[section];
         }
       }
     }
 
-    // Remove malicious scripts
     if (pkg.scripts) {
       for (const [name, cmd] of Object.entries(pkg.scripts)) {
-        if (typeof cmd === "string") {
-          if (
-            cmd.includes("tanstack_runner.js") ||
-            cmd.includes("router_init.js") ||
-            cmd.includes("router_runtime.js")
-          ) {
-            delete pkg.scripts[name];
-            changed = true;
-          }
+        if (isMaliciousScriptValue(cmd)) {
+          delete pkg.scripts[name];
+          changed = true;
         }
       }
     }
 
     if (changed) {
-      fs.writeFileSync(fullPath, JSON.stringify(pkg, null, 2) + "\n", "utf8");
+      const tmp = fullPath + ".tmp";
+      fs.writeFileSync(tmp, JSON.stringify(pkg, null, 2) + "\n", "utf8");
+      fs.renameSync(tmp, fullPath);
       return true;
     }
     return false;

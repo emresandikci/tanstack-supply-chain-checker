@@ -5,7 +5,6 @@ import { fix } from "./fixer.ts";
 import { runInteractive } from "./interactive.ts";
 import type { Finding, Severity } from "./types.ts";
 
-// ANSI colors
 const R = "\x1b[31m";
 const Y = "\x1b[33m";
 const G = "\x1b[32m";
@@ -96,7 +95,6 @@ async function main() {
     (a) => !a.startsWith("--") && !a.startsWith("-")
   );
 
-  // Interactive mode: no dir arg given, no --json, no --fix flags, or explicit -i
   if (isInteractive || (!dirArg && !doFix && !jsonOutput && !includeNodeModules)) {
     await runInteractive();
     return;
@@ -133,7 +131,6 @@ async function main() {
     process.exit(findings.length > 0 ? 1 : 0);
   }
 
-  // Group by severity
   const bySeverity: Finding[][] = [
     findings.filter((f) => f.severity === "critical"),
     findings.filter((f) => f.severity === "high"),
@@ -214,7 +211,6 @@ async function main() {
     }
   }
 
-  // Always show secrets rotation warning if critical findings
   if (!doFix && criticalCount > 0) {
     console.log(
       `${R}${BOLD}IMPORTANT:${RESET} If malicious files were executed (e.g., during npm install),`
