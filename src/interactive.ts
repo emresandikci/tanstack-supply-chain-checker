@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { scan } from "./scanner.ts";
 import { fix, type FixResult } from "./fixer.ts";
+import { printSecuritySummary } from "./report.ts";
 import type { Finding, ScanResult } from "./types.ts";
 
 interface ProjectInfo {
@@ -209,6 +210,8 @@ export async function runInteractive() {
       }
     }
 
+    printSecuritySummary(scanResult.findings);
+
     results.push({ project, scanResult, fixResult });
     console.log();
   }
@@ -230,6 +233,11 @@ export async function runInteractive() {
   }
 
   console.log();
+
+  if (results.length > 1 && totalFindings > 0) {
+    const allFindings = results.flatMap((r) => r.scanResult.findings);
+    printSecuritySummary(allFindings);
+  }
 
   if (totalFindings === 0) {
     p.outro(`${G}${BOLD}All projects clean. No indicators of compromise found.${RESET}`);

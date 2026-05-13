@@ -8,10 +8,12 @@ import {
   MALICIOUS_FILE_HASHES,
   PERSISTENCE_FILES,
   INJECTED_PACKAGES,
+  COMPROMISED_PACKAGE_VERSIONS,
   MALICIOUS_GIT_AUTHOR,
   MALICIOUS_COMMIT_HASH,
   MALICIOUS_HOOK_STRINGS,
   MALICIOUS_TASK_STRINGS,
+  NETWORK_IOCS,
 } from "./iocs.ts";
 
 const MAX_HASH_FILE_SIZE = 10 * 1024 * 1024;
@@ -80,6 +82,7 @@ export function scan(targetDir: string, scanNodeModules: boolean): ScanResult {
         path: rel,
         detail: `Malicious worm payload: ${basename}`,
         fixable: true,
+        label: basename,
       });
       return;
     }
@@ -98,6 +101,7 @@ export function scan(targetDir: string, scanNodeModules: boolean): ScanResult {
             path: rel,
             detail: `SHA256 matches known malicious payload: ${hash.slice(0, 16)}...`,
             fixable: true,
+            label: path.basename(rel),
           });
         }
       } catch {
@@ -121,6 +125,16 @@ export function scan(targetDir: string, scanNodeModules: boolean): ScanResult {
     ) {
       checkVscodeTasks(filePath, rel, findings);
     }
+
+    if (
+      filePath.endsWith(".js") ||
+      filePath.endsWith(".mjs") ||
+      filePath.endsWith(".cjs") ||
+      filePath.endsWith(".ts") ||
+      filePath.endsWith(".tsx")
+    ) {
+      checkNetworkIocs(filePath, rel, findings);
+    }
   };
 
   const processDir = (dirPath: string, rel: string) => {
@@ -139,6 +153,7 @@ export function scan(targetDir: string, scanNodeModules: boolean): ScanResult {
             path: path.join(rel, mf),
             detail: `Worm persistence file in ${basename}/: ${mf}`,
             fixable: true,
+            label: mf,
           });
         }
       }
@@ -192,6 +207,7 @@ function checkPackageJson(filePath: string, rel: string, findings: Finding[]) {
           path: rel,
           detail: `Injected malicious package "${injected}" found in ${depSection}`,
           fixable: true,
+          label: injected,
         });
       }
     }
@@ -205,6 +221,35 @@ function checkPackageJson(filePath: string, rel: string, findings: Finding[]) {
           path: rel,
           detail: `Malicious lifecycle hook in scripts.${scriptName}: ${JSON.stringify(scriptCmd)}`,
           fixable: true,
+          label: `scripts.${scriptName}`,
+        });
+      }
+    }
+
+    for (const [pkgName, badVersions] of Object.entries(COMPROMISED_PACKAGE_VERSIONS)) {
+      const specifier = allDeps[pkgName];
+      if (specifier != null) {
+        const matched = badVersions.find((bv) => String(specifier).includes(bv));
+        if (matched) {
+          findings.push({
+            severity: "high",
+            category: "compromised-version",
+            path: rel,
+            detail: `Package "${pkgName}@${specifier}" matches known compromised version ${matched} — verify lockfile and reinstall`,
+            fixable: false,
+            label: `${pkgName}@${specifier}`,
+          });
+        }
+      }
+
+      if (pkg.name === pkgName && badVersions.includes(pkg.version)) {
+        findings.push({
+          severity: "critical",
+          category: "compromised-installed-package",
+          path: rel,
+          detail: `Installed package "${pkgName}@${pkg.version}" is a known compromised version`,
+          fixable: false,
+          label: `${pkgName}@${pkg.version}`,
         });
       }
     }
@@ -227,6 +272,7 @@ function checkClaudeSettings(
         path: rel,
         detail: `Claude Code settings contain malicious hook references: ${found.join(", ")}`,
         fixable: false,
+        label: found.join(", "),
       });
     }
   } catch {
@@ -244,6 +290,7 @@ function checkVscodeTasks(filePath: string, rel: string, findings: Finding[]) {
         path: rel,
         detail: `VS Code tasks contain malicious script references: ${found.join(", ")}`,
         fixable: false,
+        label: found.join(", "),
       });
     }
 
@@ -257,6 +304,7 @@ function checkVscodeTasks(filePath: string, rel: string, findings: Finding[]) {
           path: rel,
           detail: `VS Code task "${task.label || "unnamed"}" auto-runs on folder open`,
           fixable: false,
+          label: task.label || "unnamed task",
         });
       }
     }
@@ -280,6 +328,7 @@ function checkTopLevelHiddenDirs(targetDir: string, findings: Finding[]) {
             path: rel,
             detail: `Worm persistence file in ${dirName}/: ${mf}`,
             fixable: true,
+            label: mf,
           });
         }
       }
@@ -309,6 +358,7 @@ function checkNodeModules(nodeModulesPath: string, findings: Finding[]) {
         path: `node_modules/@tanstack/${pkg}/router_init.js`,
         detail: `Compromised @tanstack package contains malicious payload`,
         fixable: true,
+        label: `@tanstack/${pkg}`,
       });
     }
 
@@ -327,6 +377,7 @@ function checkNodeModules(nodeModulesPath: string, findings: Finding[]) {
                 path: `node_modules/@tanstack/${pkg}/${f.name}`,
                 detail: `SHA256 matches malicious payload: ${hash.slice(0, 16)}...`,
                 fixable: true,
+                label: `@tanstack/${pkg}`,
               });
             }
           } catch {
@@ -347,6 +398,28 @@ function checkNodeModules(nodeModulesPath: string, findings: Finding[]) {
   }
 }
 
+const MAX_CONTENT_SCAN_SIZE = 1 * 1024 * 1024;
+
+function checkNetworkIocs(filePath: string, rel: string, findings: Finding[]) {
+  try {
+    const stat = fs.statSync(filePath);
+    if (stat.size > MAX_CONTENT_SCAN_SIZE) return;
+    const content = fs.readFileSync(filePath, "utf8");
+    const found = NETWORK_IOCS.filter((ioc) => content.includes(ioc));
+    if (found.length > 0) {
+      findings.push({
+        severity: "high",
+        category: "network-ioc",
+        path: rel,
+        detail: `File references known C2/exfiltration endpoint: ${found.join(", ")}`,
+        fixable: false,
+        label: found.join(", "),
+      });
+    }
+  } catch {
+  }
+}
+
 function checkGitHistory(targetDir: string, findings: Finding[]) {
   const authorResult = spawnSync(
     "git",
@@ -364,6 +437,7 @@ function checkGitHistory(targetDir: string, findings: Finding[]) {
         path: `.git`,
         detail: `Unauthorized commit from worm author (${MALICIOUS_GIT_AUTHOR}): ${(hash ?? "").slice(0, 12)} — ${rest.slice(1).join(" ")}`,
         fixable: false,
+        label: (hash ?? "").slice(0, 12),
       });
     }
   }
@@ -381,6 +455,7 @@ function checkGitHistory(targetDir: string, findings: Finding[]) {
       path: ".git",
       detail: `Known malicious commit hash present: ${MALICIOUS_COMMIT_HASH}`,
       fixable: false,
+      label: MALICIOUS_COMMIT_HASH.slice(0, 12),
     });
   }
 }

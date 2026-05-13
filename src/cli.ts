@@ -3,6 +3,7 @@ import fs from "node:fs";
 import { scan } from "./scanner.ts";
 import { fix } from "./fixer.ts";
 import { runInteractive } from "./interactive.ts";
+import { printSecuritySummary } from "./report.ts";
 import type { Finding, Severity } from "./types.ts";
 
 const R = "\x1b[31m";
@@ -165,6 +166,8 @@ async function main() {
       printFinding(group[i], i);
     }
   }
+
+  printSecuritySummary(findings);
 
   const fixableCount = findings.filter((f) => f.fixable).length;
 

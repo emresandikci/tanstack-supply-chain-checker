@@ -81,7 +81,9 @@ export function fix(targetDir: string, findings: Finding[]): FixResult {
       f.category === "malicious-file" ||
       f.category === "malicious-file-hash" ||
       f.category === "compromised-package" ||
-      f.category === "compromised-package-hash"
+      f.category === "compromised-package-hash" ||
+      f.category === "compromised-installed-package" ||
+      f.category === "network-ioc"
   );
 
   if (hasCredentialRisk) {

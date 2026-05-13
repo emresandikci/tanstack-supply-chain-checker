@@ -6,6 +6,7 @@ export interface Finding {
   path: string;
   detail: string;
   fixable: boolean;
+  label?: string;
 }
 
 export interface ScanResult {
