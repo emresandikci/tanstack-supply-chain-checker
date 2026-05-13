@@ -26,6 +26,9 @@
   },
   "keywords": ["security", "supply-chain", "tanstack", "npm-audit"],
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
   "devDependencies": {
     "@types/bun": "latest"
   },
