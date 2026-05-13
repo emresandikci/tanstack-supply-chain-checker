@@ -1,6 +1,6 @@
 {
   "name": "@emstack/tanstack-supply-chain-checker",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Detect and fix the mini-shai-hulud TanStack supply-chain attack (socket.dev/blog/tanstack-npm-packages-compromised-mini-shai-hulud-supply-chain-attack)",
   "type": "module",
   "bin": {
@@ -14,7 +14,7 @@
     "type": "git",
     "url": "git+https://github.com/emresandikci/tanstack-supply-chain-checker.git"
   },
-    "files": [
+  "files": [
     "dist",
     "data",
     "README.md",
@@ -26,7 +26,12 @@
     "validate": "bun run test/validate.ts",
     "prepublishOnly": "bun run build && bun run validate"
   },
-  "keywords": ["security", "supply-chain", "tanstack", "npm-audit"],
+  "keywords": [
+    "security",
+    "supply-chain",
+    "tanstack",
+    "npm-audit"
+  ],
   "license": "MIT",
   "publishConfig": {
     "access": "public"
