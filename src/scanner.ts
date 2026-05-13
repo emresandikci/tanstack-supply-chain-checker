@@ -100,7 +100,7 @@ export function scan(targetDir: string, scanNodeModules: boolean): ScanResult {
     // Check .claude/settings.json for malicious hooks
     if (
       basename === "settings.json" &&
-      rel.includes(`${path.sep}.claude${path.sep}`)
+      rel.split(path.sep).includes(".claude")
     ) {
       checkClaudeSettings(filePath, rel, findings);
     }
@@ -108,7 +108,7 @@ export function scan(targetDir: string, scanNodeModules: boolean): ScanResult {
     // Check .vscode/tasks.json for malicious auto-run tasks
     if (
       basename === "tasks.json" &&
-      rel.includes(`${path.sep}.vscode${path.sep}`)
+      rel.split(path.sep).includes(".vscode")
     ) {
       checkVscodeTasks(filePath, rel, findings);
     }
