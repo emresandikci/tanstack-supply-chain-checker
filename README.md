@@ -1,27 +1,78 @@
-# tanstack-supply-chain-checker
+# @emstack/tanstack-supply-chain-checker
 
 Detect and remediate the **mini-shai-hulud** TanStack supply-chain attack.
 
 > Reference: [socket.dev/blog/tanstack-npm-packages-compromised-mini-shai-hulud-supply-chain-attack](https://socket.dev/blog/tanstack-npm-packages-compromised-mini-shai-hulud-supply-chain-attack)
 
-## Usage
+## Quick start
 
 ```bash
-# Scan current directory
 npx @emstack/tanstack-supply-chain-checker
+```
 
-# Scan specific directory
+No arguments → **interactive mode**. Guides you through path input, project selection, and options step by step.
+
+```
+┌  tanstack-supply-chain-checker  mini-shai-hulud attack detector
+│
+◆  Root path to scan
+│  ./my-monorepo
+│
+◆  Select projects to scan
+│  ■ my-app        packages/app
+│  ■ my-lib        packages/lib
+│  □ legacy        packages/legacy
+│
+◆  Auto-fix detected issues?
+│  No / Yes
+│
+◆  Include node_modules in scan?
+│  No / Yes
+│
+◇  Scanning my-app  2 critical, 1 high
+◇  Scanning my-lib  ✓ clean
+│
+  SCAN SUMMARY
+  my-app    2 critical, 1 high    packages/app
+  my-lib    ✓ Clean               packages/lib
+```
+
+## Usage
+
+### Interactive (default)
+
+```bash
+npx @emstack/tanstack-supply-chain-checker          # auto-launches interactive
+npx @emstack/tanstack-supply-chain-checker -i       # explicit flag
+```
+
+Discovers all `package.json` projects under the given root, lets you select which to scan, and walks through options with prompts.
+
+### Non-interactive (CI / scripting)
+
+```bash
+# Scan single directory
 npx @emstack/tanstack-supply-chain-checker ./my-project
 
 # Scan and auto-fix
 npx @emstack/tanstack-supply-chain-checker ./my-project --fix
 
-# Include node_modules in scan (slower, more thorough)
+# Deep scan including node_modules
 npx @emstack/tanstack-supply-chain-checker . --include-node-modules
 
-# JSON output (for CI/scripting)
+# JSON output — exit 1 if findings, exit 0 if clean
 npx @emstack/tanstack-supply-chain-checker . --json
 ```
+
+### All flags
+
+| Flag | Description |
+|---|---|
+| `-i`, `--interactive` | Interactive mode (default when no args) |
+| `--fix` | Auto-remove malicious files, clean `package.json` |
+| `--include-node-modules` | Also scan inside `node_modules` (slow) |
+| `--json` | Machine-readable output, exit code 1 on findings |
+| `--help` | Show help |
 
 ## What it detects
 
@@ -43,7 +94,7 @@ npx @emstack/tanstack-supply-chain-checker . --json
 - Deletes confirmed malicious files
 - Strips `@tanstack/setup` from all `package.json` dependency sections
 - Removes malicious lifecycle scripts from `package.json`
-- Prints a mandatory secrets-rotation checklist (GITHUB_TOKEN, NPM_TOKEN, AWS keys, Vault tokens, etc.)
+- Prints mandatory secrets-rotation checklist (GITHUB_TOKEN, NPM_TOKEN, AWS keys, Vault tokens, etc.)
 - Prints git commands to audit unauthorized commits
 
 ## What requires manual action
@@ -60,3 +111,11 @@ npx @emstack/tanstack-supply-chain-checker . --json
 bun install
 bun run build   # outputs dist/cli.js
 ```
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) — especially the section on adding new IOCs.
+
+## Security
+
+Report vulnerabilities privately per [SECURITY.md](SECURITY.md). Do not open public issues for security bugs.
