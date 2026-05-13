@@ -160,6 +160,7 @@ export async function runInteractive() {
     scanResult: ScanResult;
     fixResult?: FixResult;
   }> = [];
+  const failedProjects: Array<{ project: ProjectInfo; reason: string }> = [];
 
   for (const project of selected as unknown as ProjectInfo[]) {
     const s = p.spinner();
@@ -169,8 +170,10 @@ export async function runInteractive() {
     try {
       scanResult = scan(project.dir, includeNodeModules as boolean);
     } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      failedProjects.push({ project, reason });
       s.stop(`${project.name}  ${R}scan error${RESET}`);
-      p.log.error(`  ${project.name}: ${err instanceof Error ? err.message : String(err)}`);
+      p.log.error(`  ${project.name}: ${reason}`);
       continue;
     }
 
@@ -218,18 +221,29 @@ export async function runInteractive() {
 
   const totalFindings = results.reduce((n, r) => n + r.scanResult.findings.length, 0);
   const compromised = results.filter((r) => r.scanResult.findings.length > 0);
+  const scanErrors = failedProjects.length;
 
   console.log();
   p.log.step(`${BOLD}SCAN SUMMARY${RESET}`);
   console.log();
 
-  const nameWidth = Math.max(...results.map((r) => r.project.name.length), 10);
+  const allNames = [
+    ...results.map((r) => r.project.name),
+    ...failedProjects.map((f) => f.project.name),
+  ];
+  const nameWidth = Math.max(...allNames.map((n) => n.length), 10);
 
   for (const r of results) {
     const name = r.project.name.padEnd(nameWidth);
     const status = formatFindings(r.scanResult.findings);
     const path2 = `${B}${r.project.relPath}${RESET}`;
     console.log(`  ${name}  ${status}  ${path2}`);
+  }
+
+  for (const f of failedProjects) {
+    const name = f.project.name.padEnd(nameWidth);
+    const path2 = `${B}${f.project.relPath}${RESET}`;
+    console.log(`  ${name}  ${R}scan failed${RESET}  ${path2}  ${B}${f.reason}${RESET}`);
   }
 
   console.log();
@@ -239,8 +253,10 @@ export async function runInteractive() {
     printSecuritySummary(allFindings);
   }
 
-  if (totalFindings === 0) {
+  if (totalFindings === 0 && scanErrors === 0) {
     p.outro(`${G}${BOLD}All projects clean. No indicators of compromise found.${RESET}`);
+  } else if (totalFindings === 0 && scanErrors > 0) {
+    p.outro(`${Y}${BOLD}${scanErrors} project(s) failed to scan. Review errors above — results are incomplete.${RESET}`);
   } else {
     if (doFix) {
       const allManual = results

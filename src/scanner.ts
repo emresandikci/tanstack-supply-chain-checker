@@ -143,7 +143,7 @@ export function scan(targetDir: string, scanNodeModules: boolean): ScanResult {
     const basename = path.basename(dirPath);
 
     const maliciousFiles = PERSISTENCE_FILES[basename];
-    if (maliciousFiles) {
+    if (Array.isArray(maliciousFiles)) {
       for (const mf of maliciousFiles) {
         const candidate = path.join(dirPath, mf);
         if (fs.existsSync(candidate)) {
